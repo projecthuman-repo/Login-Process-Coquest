@@ -1,0 +1,282 @@
+From 4197201db9a460098347d77f078c8521d7c09ec8 Mon Sep 17 00:00:00 2001
+From: Nicholas Defranco <defrann8208@outlook.com>
+Date: Fri, 29 Mar 2024 11:18:17 -0400
+Subject: [PATCH 2/2] temporary patch
+
+---
+ backend/controllers/login.js         |  9 ++-
+ backend/controllers/users.js         | 28 ++++----
+ backend/models/userActivity.js       |  4 --
+ backend/models/userApp.js            |  4 --
+ frontend/src/components/LoginForm.js | 97 ++++++++++++++--------------
+ 5 files changed, 71 insertions(+), 71 deletions(-)
+
+diff --git a/backend/controllers/login.js b/backend/controllers/login.js
+index dc127d0..85ebe69 100644
+--- a/backend/controllers/login.js
++++ b/backend/controllers/login.js
+@@ -78,8 +78,12 @@ loginRouter.post(
+     }
+ 
+     const userForToken = {
++      name: {
++        first: user.firstName,
++        last: user.lastName,
++      },
+       username: user.username,
+-      id: user._id,
++      email: user.email,
+     };
+ 
+     // Update the lastLoginDate field
+@@ -92,8 +96,11 @@ loginRouter.post(
+ 
+     const token = jwt.sign(userForToken, 'your-access-token-secret', {
+       expiresIn: "1h",
++      subject: user._id.toString(),
+     });
+ 
++    response.cookie('phc', token);
++
+     response.status(200).json({
+       status: "Success",
+       token,
+diff --git a/backend/controllers/users.js b/backend/controllers/users.js
+index c3f92b9..2ac096c 100644
+--- a/backend/controllers/users.js
++++ b/backend/controllers/users.js
+@@ -199,19 +199,20 @@ const registerUser = async (request, response) => {
+   try {
+     const userInfo = request.body;
+ 
++    const app = await App.findOne({ appId: userInfo.appId });
++    if (app == null) {
++      return response.status(400).json({
++        status: "Fail",
++        error: "No appId provided",
++      });
++    }
++
+     // Check if the user already exists
+     const userExists = await User.findOne({
+       $or: [{ email: userInfo.email }, { username: userInfo.username }],
+     });
+     if (userExists) {
+       // Check if the user is already connected to the app
+-      const app = await App.findOne({ appId: userInfo.appId });
+-      if (app == null) {
+-        return response.status(400).json({
+-          status: "Fail",
+-          error: "No appId provided",
+-        });
+-      }
+       const userAppExists = await UserApp.findOne({
+         userId: userExists._id,
+         appId: app._id,
+@@ -225,8 +226,7 @@ const registerUser = async (request, response) => {
+         // Create a new user-app connection
+         const newUserApp = new UserApp({
+           userId: userExists._id,
+-          app: userInfo.appId,
+-          appVersion: "",
++          app: app._id,
+           lastActivityDate: new Date(),
+           totalActivityTime: 0,
+           appRank: "",
+@@ -311,7 +311,7 @@ const registerUser = async (request, response) => {
+     }
+ 
+     //Get the activity details
+-    const activity = await Activity.findById(1);
++    const activity = await Activity.findOne({activityId: 1});
+ 
+     if (!activity) {
+       return response.status(400).json({
+@@ -322,8 +322,8 @@ const registerUser = async (request, response) => {
+ 
+     // Update UserActivity
+     const userActivity = new UserActivity({
+-      userId: newUser._id,
+-      activityId: activity._id,
++      user: newUser._id,
++      activity: activity._id,
+       datePerformed: new Date(),
+       pointsEarned: activity.activityPoints,
+     });
+@@ -331,8 +331,8 @@ const registerUser = async (request, response) => {
+ 
+     // Update UserApp
+     const userApp = new UserApp({
+-      userId: newUser._id,
+-      appId: app._id,
++      user: newUser._id,
++      app: app._id,
+       appVersion: "",
+       lastActivityDate: new Date(),
+       totalActivityDate: 0,
+diff --git a/backend/models/userActivity.js b/backend/models/userActivity.js
+index b22f0f9..aa42310 100644
+--- a/backend/models/userActivity.js
++++ b/backend/models/userActivity.js
+@@ -21,10 +21,6 @@ const uniqueValidator = require("mongoose-unique-validator");
+ 
+ // Define the UserActivity schema
+ const userActivitySchema = new mongoose.Schema({
+-    userActivityID: {
+-         type: String,
+-          required: true,
+-           unique: true },
+     user: {
+          type: mongoose.Schema.Types.ObjectId,
+           ref: 'User',
+diff --git a/backend/models/userApp.js b/backend/models/userApp.js
+index 97dadb5..1a4178f 100644
+--- a/backend/models/userApp.js
++++ b/backend/models/userApp.js
+@@ -27,10 +27,6 @@ const userAppSchema = new mongoose.Schema({
+     app: { type: mongoose.Schema.Types.ObjectId, 
+         ref: 'App', 
+         required: true },
+-    appVersion: { 
+-        type: mongoose.Schema.Types.ObjectId, 
+-        ref: 'App Version', 
+-        required: true },
+     lastActivityDate: { 
+         type: Date },
+     totalActivityTime: { 
+diff --git a/frontend/src/components/LoginForm.js b/frontend/src/components/LoginForm.js
+index db63e72..d124347 100644
+--- a/frontend/src/components/LoginForm.js
++++ b/frontend/src/components/LoginForm.js
+@@ -4,8 +4,8 @@ import { React, useState } from "react";
+ import { Form, Button } from "react-bootstrap";
+ import { login } from "./../services/login";
+ import { useNavigate } from "react-router-dom";
+-import { useGoogleLogin } from "@react-oauth/google";
+-import { addGoogleUser } from "../services/addGoogleUser";
++// import { useGoogleLogin } from "@react-oauth/google";
++// import { addGoogleUser } from "../services/addGoogleUser";
+ import { useSearchParams } from "react-router-dom";
+ import axios from "axios";
+ 
+@@ -17,52 +17,52 @@ export default function LoginForm() {
+     const [params] = useSearchParams();
+     const navigate = useNavigate();
+     // Google login
+-    const googleLogin = useGoogleLogin({
+-        onSuccess: (codeResponse) => {
+-            const user = codeResponse;
+-            const token = user.access_token;
+-            // Set token and expiration data of token
+-            localStorage.setItem("token", token);
+-            const expiration = new Date();
+-            expiration.setMinutes(expiration.getMinutes() + 60);
+-            localStorage.setItem("expiration", expiration.toISOString());
+-            // Send request to google api to verify if login was successful and get user info
+-            axios
+-                .get(
+-                    `https://www.googleapis.com/oauth2/v1/userinfo?access_token=${token}`,
+-                    {
+-                        headers: {
+-                            Authorization: `Bearer ${token}`,
+-                            Accept: "application/json",
+-                        },
+-                    }
+-                )
+-                .then((res) => {
+-                    // Profile contains user data
+-                    const profile = res.data;
+-                    // Add google user into database
+-                    addGoogleUser({
+-                        firstName: profile.given_name,
+-                        lastName: profile.family_name,
+-                        email: profile.email,
+-                    })
+-                        .then((data) => {
+-                            console.log(data);
+-                        })
+-                        .catch((e) => {
+-                            console.log(e);
+-                        });
+-                })
+-                .catch((err) => console.log(err));
+-            // Go to homepage on successfuly login
+-            navigate("/homepage");
+-        },
+-        onError: (error) => setLoginError("Login failed: ", error),
+-    });
++    // const googleLogin = useGoogleLogin({
++    //     onSuccess: (codeResponse) => {
++    //         const user = codeResponse;
++    //         const token = user.access_token;
++    //         // Set token and expiration data of token
++    //         localStorage.setItem("token", token);
++    //         const expiration = new Date();
++    //         expiration.setMinutes(expiration.getMinutes() + 60);
++    //         localStorage.setItem("expiration", expiration.toISOString());
++    //         // Send request to google api to verify if login was successful and get user info
++    //         axios
++    //             .get(
++    //                 `https://www.googleapis.com/oauth2/v1/userinfo?access_token=${token}`,
++    //                 {
++    //                     headers: {
++    //                         Authorization: `Bearer ${token}`,
++    //                         Accept: "application/json",
++    //                     },
++    //                 }
++    //             )
++    //             .then((res) => {
++    //                 // Profile contains user data
++    //                 const profile = res.data;
++    //                 // Add google user into database
++    //                 addGoogleUser({
++    //                     firstName: profile.given_name,
++    //                     lastName: profile.family_name,
++    //                     email: profile.email,
++    //                 })
++    //                     .then((data) => {
++    //                         console.log(data);
++    //                     })
++    //                     .catch((e) => {
++    //                         console.log(e);
++    //                     });
++    //             })
++    //             .catch((err) => console.log(err));
++    //         // Go to homepage on successfuly login
++    //         navigate("/homepage");
++    //     },
++    //     onError: (error) => setLoginError("Login failed: ", error),
++    // });
+     // Handle form submission
+     const onSubmit = (values, actions) => {
+         axios
+-            .post("/api/login", {
++            .post("http://localhost:3001/api/login", {
+                 username: values.username,
+                 password: values.password,
+                 appId: params.get("appId")
+@@ -77,7 +77,8 @@ export default function LoginForm() {
+                 localStorage.setItem("expiration", expiration.toISOString());
+                 console.log("Successfully logged in user ", response.data);
+                 setLoginError(null);
+-                navigate("/homepage");
++                //navigate("/homepage");
++                window.location.href = `http://localhost:3000?token=${token}`;
+             })
+             .catch((err) => {
+                 console.log(err); // Log the error object to the console
+@@ -173,9 +174,9 @@ export default function LoginForm() {
+             <div>
+                 <a href="/register">Don't have an account? Sign up</a>
+             </div>
+-            <Button onClick={() => googleLogin()}>
++            {/* <Button onClick={() => googleLogin()}>
+                 Sign in with Google 🚀{" "}
+-            </Button>
++            </Button> */}
+         </div>
+     );
+ }
+-- 
+2.43.0.windows.1
+
