@@ -15,6 +15,7 @@ const bcrypt = require("bcrypt");
 const { body, validationResult } = require("express-validator");
 const loginRouter = require("express").Router();
 const User = require("../models/user");
+const { getSecret } = require("../utils/gcloud");
 /**
  * POST /api/login/
  * Controller method to log in user
@@ -27,13 +28,6 @@ const User = require("../models/user");
  * @returns {string} username
  * @returns {string} firstName
  */
-
-function isEmail(value) {
-  const validPattern = /^[\w\.-]+@[a-zA-Z\d\.-]+\.[a-zA-Z]{2,}$/;
-  return validPattern.test(value);
-}
-
-
 loginRouter.post(
   "/",
   body("username")
@@ -62,29 +56,12 @@ loginRouter.post(
         error: list_errors,
       });
     }
-    const { username,  password, mainmail } = request.body;
-    //const { username, email, password } = request.body;
-    console.log(request.body,"Body");
-    //console.log(isEmail(username), "isEmail?");
+    const { username, password } = request.body;
     // Get user via username in request body
-    let user = null;
-    if(isEmail(username))
-      user = await User.findOne({ email: username });
-    else {
-      user = await User.findOne({ username: username })
-    }
-    let mainEmail = null;
-    if(mainmail){
-      mainEmail = await User.findOne({ email: mainmail });
-    }
-    console.log(user, ": User");
-    //const email = await User.findOne({ username });
+    const user = await User.findOne({ username });
     // Check if entered password is same as hashed password
     const passwordCorrect =
-      user === null 
-      ? false 
-      : await bcrypt.compare(password, user.passwordHash) || passwordHash == user.passwordHash
-    
+      user === null ? false : await bcrypt.compare(password, user.passwordHash);
     // If user doesn't exist or password isn't correct, return error
     if (!(user && passwordCorrect)) {
       return response.status(401).json({
@@ -101,51 +78,82 @@ loginRouter.post(
       });
     }
 
-    const passwordHash = user.passwordHash
-
     const userForToken = {
+      name: {
+        first: user.firstName,
+        last: user.lastName,
+      },
       username: user.username,
-      id: user._id,
+      email: user.email,
     };
 
     // Update the lastLoginDate field
     user.lastLoginDate = new Date();
     // Save the updated user record
+    await user.save();
 
     // token expires 1hr
     // Sign jwt on login, used for authorization
 
-    const token = jwt.sign(userForToken, 'your-access-token-secret', {
-      expiresIn: "3D",
+    const token = jwt.sign(userForToken, await getSecret(process.env.ACCESS_JWT_NAME), {
+      expiresIn: "1h",
+      subject: user._id.toString(),
     });
 
-    // Main sets new account in otherAccounts
-    if(mainEmail != null){
-      const userIdStr = user._id.toString();
-      if (!mainEmail.otherAccounts.has(userIdStr)) {
-        console.log("USER SWITCHED", user)
-        mainEmail.otherAccounts.set(userIdStr, [user.username, user.picture, user.token, passwordHash]);
-        console.log("Main Email: ", mainEmail);
-        await mainEmail.save();
-      }
+    const refreshToken = jwt.sign(userForToken, await getSecret(process.env.REFRESH_JWT_NAME), {
+      expiresIn: '7d',
+      subject: user._id.toString(),
+    });
 
-      // New account sets main in otherAccount
-      const mainIdStr = mainmail._id.toString();
-      user.otherAccounts.set(mainIdStr, [mainmail.username, mainmail.picture, mainmail.token, mainmail.passwordHash]);
-
-    } 
-
-    user.token = token;
+    // Save the refresh token to the user's record in the database
+    user.refreshToken = refreshToken;
     await user.save();
-    
+
+    response.cookie('phc', token);
 
     response.status(200).json({
       status: "Success",
       token,
       username: user.username,
       firstName: user.firstName,
-      lastName: user.lastName,
-      otherAccounts: user.otherAccounts,
+    });
+  }
+);
+
+loginRouter.post(
+  "/token",
+  body("token")
+    .not()
+    .isEmpty()
+    .withMessage("An access token is requried"),
+  async (req, res) => {
+    const { token } = req.body;
+    const accessSecret = await getSecret(process.env.ACCESS_JWT_NAME);
+    const refreshSecret = await getSecret(process.env.REFRESH_JWT_NAME);
+
+    const decoded = jwt.decode(token);
+
+    let user = await User.findById(decoded.sub).exec();
+
+    const userForToken = {
+      name: {
+        first: user.firstName,
+        last: user.lastName,
+      },
+      username: user.username,
+      email: user.email,
+    };
+
+    jwt.verify(user.refreshToken, refreshSecret, async(err, _) => {
+      if (err) {
+        return res.sendStatus(403);
+      }
+
+      const accessToken = jwt.sign(userForToken, accessSecret, { expiresIn: '1h', subject: user._id.toString(), });
+      user.refreshToken = jwt.sign(userForToken, refreshSecret, { expiresIn: '7d', subject: user._id.toString(), });
+      await user.save();
+
+      res.json({ accessToken });
     });
   }
 );

@@ -156,7 +156,7 @@ usersRouter.post(
       .isEmpty()
       .trim()
       .escape()
-      .isMobilePhone()
+      .isMobilePhone("any")
       .withMessage("Invalid input for phone number"),
   ],
   async (request, response) => {
@@ -198,23 +198,21 @@ usersRouter.post(
 const registerUser = async (request, response) => {
   try {
     const userInfo = request.body;
-    console.log("REQUEST BODY", userInfo)
 
+    const app = await App.findOne({ appId: userInfo.appId });
+    if (app == null) {
+      return response.status(400).json({
+        status: "Fail",
+        error: "No appId provided",
+      });
+    }
 
     // Check if the user already exists
     const userExists = await User.findOne({
       $or: [{ email: userInfo.email }, { username: userInfo.username }],
     });
     if (userExists) {
-      console.log("HERE============")
       // Check if the user is already connected to the app
-      const app = await App.findOne({ appId: userInfo.appId });
-      if (app == null) {
-        return response.status(400).json({
-          status: "Fail",
-          error: "No appId provided",
-        });
-      }
       const userAppExists = await UserApp.findOne({
         userId: userExists._id,
         appId: app._id,
@@ -228,8 +226,7 @@ const registerUser = async (request, response) => {
         // Create a new user-app connection
         const newUserApp = new UserApp({
           userId: userExists._id,
-          app: userInfo.appId,
-          appVersion: "",
+          app: app._id,
           lastActivityDate: new Date(),
           totalActivityTime: 0,
           appRank: "",
@@ -283,9 +280,6 @@ const registerUser = async (request, response) => {
       passwordHash: passwordHash,
       email: userInfo.email,
       phoneNumber: userInfo.phoneNumber,
-      picture: userInfo.picture ? userInfo.picture : " ",
-      userType: "personal",
-      token: " ",
       emailToken: emailToken,
       isVerified: false,
       passwordResetToken: "",
@@ -294,7 +288,6 @@ const registerUser = async (request, response) => {
       registrationDate: new Date(),
       lastLoginDate: null,
       previousPasswords: [],
-      otherAccounts: {},
     });
 
     await newUser.save();
@@ -318,8 +311,7 @@ const registerUser = async (request, response) => {
     }
 
     //Get the activity details
-    /*
-    const activity = await Activity.findById(1);
+    const activity = await Activity.findOne({activityId: 1});
 
     if (!activity) {
       return response.status(400).json({
@@ -330,8 +322,8 @@ const registerUser = async (request, response) => {
 
     // Update UserActivity
     const userActivity = new UserActivity({
-      userId: newUser._id,
-      activityId: activity._id,
+      user: newUser._id,
+      activity: activity._id,
       datePerformed: new Date(),
       pointsEarned: activity.activityPoints,
     });
@@ -339,8 +331,8 @@ const registerUser = async (request, response) => {
 
     // Update UserApp
     const userApp = new UserApp({
-      userId: newUser._id,
-      appId: app._id,
+      user: newUser._id,
+      app: app._id,
       appVersion: "",
       lastActivityDate: new Date(),
       totalActivityDate: 0,
@@ -367,7 +359,7 @@ const registerUser = async (request, response) => {
       userApp.currentRank = rank.rankId;
       await userApp.save();
     }
-*/
+
     // Send email to user to welcome them to the app and verify their email
     const url = `http://localhost:3000/verification/?token=${emailToken}`;
     try {
@@ -467,7 +459,6 @@ usersRouter.patch("/verification/", async (request, response) => {
   }
   // Verify user and save user
   user.isVerified = true;
-  user.token = token;
   await user.save();
   return response.json({
     status: "Success",
@@ -554,13 +545,6 @@ usersRouter.patch(
     .escape()
     .isMobilePhone()
     .withMessage("Invalid input for phone number"),
-  body("picture")
-    .isString()
-    .not()
-    .isEmpty()
-    .trim()
-    .escape()
-    .withMessage("Invalid input for picture"),
   protect,
   async (request, response) => {
     // Get errors of validation of body above
@@ -629,7 +613,6 @@ usersRouter.patch(
     user.username = infoToChange.username;
     user.phoneNumber = infoToChange.phoneNumber;
     user.email = infoToChange.email;
-    user.picture = infoToChange.picture;
     await user.save();
 
     // CrossPlatformUser manages the 3 web app users (lotuslearning, regenquest, spotstitch)

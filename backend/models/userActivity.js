@@ -21,10 +21,6 @@ const uniqueValidator = require("mongoose-unique-validator");
 
 // Define the UserActivity schema
 const userActivitySchema = new mongoose.Schema({
-    userActivityID: {
-         type: String,
-          required: true,
-           unique: true },
     user: {
          type: mongoose.Schema.Types.ObjectId,
           ref: 'User',

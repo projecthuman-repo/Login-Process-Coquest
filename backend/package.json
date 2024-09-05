@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/projecthuman-repo/Login-Process#readme",
   "dependencies": {
+    "@google-cloud/secret-manager": "^5.6.0",
     "axios": "^1.4.0",
     "bcrypt": "^5.1.0",
     "compression": "^1.7.4",
@@ -32,12 +33,10 @@
     "express-validator": "^6.15.0",
     "helmet": "^6.2.0",
     "jsonwebtoken": "^9.0.0",
-    "mastodon-api": "^1.3.0",
     "mongoose": "^6.11.1",
     "mongoose-unique-validator": "^3.1.0",
     "morgan": "^1.10.0",
-    "nodemailer": "^6.9.13",
-    "prompt": "^1.3.0",
+    "nodemailer": "^6.9.3",
     "xss-clean": "^0.1.4"
   },
   "devDependencies": {

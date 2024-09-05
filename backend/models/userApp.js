@@ -27,10 +27,6 @@ const userAppSchema = new mongoose.Schema({
     app: { type: mongoose.Schema.Types.ObjectId, 
         ref: 'App', 
         required: true },
-    appVersion: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'App Version', 
-        required: true },
     lastActivityDate: { 
         type: Date },
     totalActivityTime: { 

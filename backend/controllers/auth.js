@@ -26,6 +26,7 @@ const authRouter = require("express").Router();
 const Email = require("./../utils/email");
 const User = require("../models/user");
 const axios = require("axios");
+const { getSecret } = require("../utils/gcloud");
 
 /**
  * This middleware will check if there is a jwt token or cookie in the request headers
@@ -158,10 +159,10 @@ authRouter.post("/access/", async (request, response) => {
     }
 
     // Generate access token
-    const accessToken = jwt.sign({ userId: user._id }, 'your-access-token-secret', { expiresIn: '15m' });
+    const accessToken = jwt.sign({ userId: user._id }, getSecret(process.env.ACCESS_JWT_NAME), { expiresIn: '1h' });
 
     // Generate refresh token
-    const refreshToken = jwt.sign({ userId: user._id }, 'your-refresh-token-secret', { expiresIn: '7d' });
+    const refreshToken = jwt.sign({ userId: user._id }, getSecret(process.env.REFRESH_JWT_NAME), { expiresIn: '7d' });
 
     // Save the refresh token to the user's record in the database
     user.refreshToken = refreshToken;
