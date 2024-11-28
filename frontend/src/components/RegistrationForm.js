@@ -1,4 +1,4 @@
-import { React, useState, useRef } from "react";
+import { React, useState } from "react";
 import { Form, Button } from "react-bootstrap";
 import "react-phone-number-input/style.css";
 import { registerUser } from "./../services/registration";
@@ -6,8 +6,6 @@ import PhoneInput from "react-phone-number-input";
 import { useFormik } from "formik";
 import { schema } from "./../schemas/registrationSchema";
 import { resendVerificationLink } from "./../services/resendVerificationLink";
-import ReCAPTCHA from "react-google-recaptcha";
-import { verifyCaptcha } from "../services/verifyCaptcha";
 import { useSearchParams } from "react-router-dom";
 
 // Component for registration page
@@ -15,17 +13,12 @@ import { useSearchParams } from "react-router-dom";
 export default function RegistrationForm() {
     // Hooks
     const [registrationError, setRegistrationError] = useState(null);
-    const captchaRef = useRef(null);
     const [hasRegistered, setHasRegistered] = useState(false);
     const [user, setUser] = useState(null);
     const [emailToken, setEmailToken] = useState(null);
     const [phoneNumber, setPhoneNumber] = useState("");
-    const [buttonOn, setButtonOn] = useState(false);
-    const [params] = useSearchParams();
-    // Only allow registration button to be clickable provided captcha is filled out
-    function turnButtonOn() {
-        setButtonOn(true);
-    }
+    const [params] = useSearchParams(); // Add this line back
+
     // Function to resend verification link after registration
     function resendLink() {
         resendVerificationLink(user, emailToken)
@@ -38,18 +31,9 @@ export default function RegistrationForm() {
                 console.log(err);
             });
     }
+
     // Handle submission
     const onSubmit = (values, actions) => {
-        const token = captchaRef.current.getValue();
-        console.log(token);
-        verifyCaptcha(token)
-            .then((data) => {
-                console.log(data);
-            })
-            .catch((err) => {
-                console.log(err);
-            });
-        captchaRef.current.reset();
         registerUser({
             email: values.email,
             password: values.password,
@@ -57,7 +41,7 @@ export default function RegistrationForm() {
             firstName: values.firstName,
             lastName: values.lastName,
             username: values.username,
-            appId: params.get("appId"),
+            appId: params.get("appId"), // This uses the params variable
         })
             .then((data) => {
                 // Clear form
@@ -74,7 +58,6 @@ export default function RegistrationForm() {
     };
 
     // Use Formik to handle validation
-
     const { values, errors, handleBlur, touched, handleChange, handleSubmit } =
         useFormik({
             initialValues: {
@@ -88,6 +71,7 @@ export default function RegistrationForm() {
             validationSchema: schema,
             onSubmit,
         });
+
     // Phone number field is not properly handled by formik
     if (phoneNumber !== "") values.phoneNumber = phoneNumber;
 
@@ -220,12 +204,7 @@ export default function RegistrationForm() {
                     </p>
                 </div>
                 {/* submit button */}
-                <ReCAPTCHA
-                    sitekey={process.env.REACT_APP_SITE_KEY}
-                    ref={captchaRef}
-                    onChange={turnButtonOn}
-                />
-                <Button disabled={!buttonOn} variant="primary" type="submit">
+                <Button variant="primary" type="submit">
                     Register
                 </Button>
             </Form>
@@ -243,7 +222,7 @@ export default function RegistrationForm() {
                 <div>
                     {" "}
                     <p className="text-success">
-                        Succesfully registered account, please verify your
+                        Successfully registered account, please verify your
                         account using the email sent to you!
                     </p>
                     <Button

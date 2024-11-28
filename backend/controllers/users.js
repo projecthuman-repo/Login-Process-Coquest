@@ -214,8 +214,8 @@ const registerUser = async (request, response) => {
     if (userExists) {
       // Check if the user is already connected to the app
       const userAppExists = await UserApp.findOne({
-        userId: userExists._id,
-        appId: app._id,
+        user: userExists._id,
+        app: app._id,
       });
       if (userAppExists) {
         return response.status(400).json({
@@ -281,7 +281,8 @@ const registerUser = async (request, response) => {
       email: userInfo.email,
       phoneNumber: userInfo.phoneNumber,
       emailToken: emailToken,
-      isVerified: false,
+      // TODO: Make verification email working, This should be False (Temporarily changed to true).
+      isVerified: true,
       passwordResetToken: "",
       passwordResetExpires: null,
       passwordChangesAt: null,
