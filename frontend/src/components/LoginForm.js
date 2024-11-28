@@ -172,7 +172,7 @@ export default function LoginForm() {
                 <a href="/forgotPassword">Forgot Password?</a>
             </div>
             <div>
-                <a href="/register">Don't have an account? Sign up</a>
+                <a href={`/register/?appId=${params.get("appId")}`}>Don't have an account? Sign up</a>
             </div>
             {/* <Button onClick={() => googleLogin()}>
                 Sign in with Google 🚀{" "}
