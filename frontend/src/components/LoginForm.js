@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 // import { addGoogleUser } from "../services/addGoogleUser";
 import { useSearchParams } from "react-router-dom";
 import axios from "axios";
+import { Config } from "../config";
 
 // Component for login page
 
@@ -62,10 +63,10 @@ export default function LoginForm() {
     // Handle form submission
     const onSubmit = (values, actions) => {
         axios
-            .post("http://localhost:3001/api/login", {
+            .post("/api/login", {
                 username: values.username,
                 password: values.password,
-                appId: params.get("appId")
+                appId: params.get("appId"),
             })
             .then((response) => {
                 actions.resetForm();
@@ -78,7 +79,7 @@ export default function LoginForm() {
                 console.log("Successfully logged in user ", response.data);
                 setLoginError(null);
                 //navigate("/homepage");
-                window.location.href = `http://localhost:3000?token=${token}`;
+                window.location.href = Config.COQUEST_URL + `?token=${token}`;
             })
             .catch((err) => {
                 console.log(err); // Log the error object to the console
@@ -172,7 +173,9 @@ export default function LoginForm() {
                 <a href="/forgotPassword">Forgot Password?</a>
             </div>
             <div>
-                <a href={`/register/?appId=${params.get("appId")}`}>Don't have an account? Sign up</a>
+                <a href={`/register/?appId=${params.get("appId")}`}>
+                    Don't have an account? Sign up
+                </a>
             </div>
             {/* <Button onClick={() => googleLogin()}>
                 Sign in with Google 🚀{" "}

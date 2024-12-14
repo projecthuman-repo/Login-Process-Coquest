@@ -1,11 +1,12 @@
 // Setup proxy
 const { createProxyMiddleware } = require("http-proxy-middleware");
+const { Config } = require("./config");
 
 module.exports = function (app) {
   app.use(
     "/api",
     createProxyMiddleware({
-      target: "http://localhost:3001",
+      target: Config.API_URL,
       changeOrigin: true,
     })
   );
